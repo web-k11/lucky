@@ -131,10 +131,10 @@
                 font-size: 16px; /* 防止iOS縮放 */
             }
             
-            .prize-item input[type="number"] {
+           /* .prize-item input[type="number"] {
                 font-size: 13px; /* 防止iOS縮放 */
                 width: 46px;
-            }
+            } */
             
             .delete-prize svg {
                 width: 20px;
@@ -1698,6 +1698,8 @@
             
             // 初始化添加一個獎項
             addPrizeItem('', 1, 0, false);
+            
+            
            // "新增獎項" 按鈕的事件監聽器
             addPrizeButton.addEventListener('click', () => {
                 // 這裡傳遞 true，確保點擊後自動聚焦
