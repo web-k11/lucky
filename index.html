@@ -670,11 +670,26 @@
         .prize-preview-count {
             background-color: #f0f0f0;
             border-radius: 999px;
-            padding: 0.25rem 0.75rem;
-            font-size: 0.875rem;
+            padding: 0.125rem 0.5rem;
+            font-size: 0.75rem;
             font-weight: 600;
             color: #555;
+            white-space: nowrap; /* 確保 "1名" 不會換行，保持單行 */
+            flex-shrink: 0;      /* 非常重要！告訴 Flex 容器不要壓縮這個元素，優先壓縮其他元素 */
+            min-width: 35px;     /* 設定一個最小寬度，確保即使在極端情況下，它也有足夠空間顯示 */
+    
+            display: flex;       /* 將自身設為 Flex 容器 */
+            justify-content: center; /* 確保內部內容（"1名"）水平置中 */
+            align-items: center; /* 確保內部內容垂直置中 */
         }
+        
+            * 針對小螢幕進一步優化 (可選，但推薦) */
+@media (max-width: 640px) { /* 這是 Tailwind CSS 的 'sm' 斷點 */
+    .prize-preview-count {
+        min-width: 30px; /* 在更小的手機螢幕上，可以允許它再窄一點 */
+        padding: 0.125rem 0.4rem; /* 左右內邊距再縮小一點 (py-0.5 px-[0.4rem]) */
+    }
+}
         
         /* 提示彈窗樣式 */
         .alert-overlay {
