@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抽獎系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        muted: {
+                            beige: '#E9E5E0',
+                            pink: '#EDE2E1',
+                            sage: '#E0E6DE',
+                            blue: '#DCE4EA',
+                            lavender: '#E5E2EE',
+                            mint: '#E0EBE3',
+                            peach: '#F4E7DF',
+                            gray: '#E5E5E5',
+                            clay: '#E5DBD2',
+                            dusty: '#DCD7D4'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #F9F8F6;
+            -webkit-tap-highlight-color: transparent;
+        }
+       .prize-name-input {
+        padding: 0.5rem 0.75rem; /* 增加內邊距，確保游標和文字不貼邊 */
+        border: 1px solid #e0e0e0; /* 輕微的預設邊框 */
+        border-radius: 6px; /* 輕微圓角 */
+        background-color: white; /* 確保背景是白色，游標更清晰 */
+        transition: border-color 0.2s ease; /* 讓邊框顏色變化更平滑 */
+        /* 這裡不再需要 box-shadow transition */
+    }
+
+    .prize-name-input:focus {
+        border-color: #B2D1FF; /* 聚焦時邊框變為淺藍色，比之前更明顯但不是黑框 */
+        border-width: 2px; /* 聚焦時邊框加粗，提供視覺回饋 */
+        padding: calc(0.5rem - 1px) calc(0.75rem - 1px); /* 調整內邊距以抵消 border-width 增加的尺寸，保持整體大小不變 */
+        outline: none; /* 移除瀏覽器預設的藍色外框 */
+        box-shadow: none; /* **關鍵：移除所有 box-shadow** */
+    }
+
+    /* 手機版優化，防止iOS縮放 */
+    @media (max-width: 640px) {
+        .prize-name-input {
+            font-size: 16px; /* 防止iOS縮放 */
+            padding: 10px 12px; /* 針對手機調整內邊距 */
+        }
+        .prize-name-input:focus {
+            padding: calc(10px - 1px) calc(12px - 1px); /* 針對手機再次調整內邊距 */
+        }
+    } 
+
+
+
+
+        .muted-shadow {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+        }
+        
+        .prize-card {
+            transition: all 0.4s ease;
+        }
+        
+        .prize-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        .draw-button {
+            transition: all 0.3s ease;
+        }
+        
+        .draw-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .draw-button:active {
+            transform: translateY(1px);
+        }
+        
+        .drawing-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        .drawing-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .drawing-content {
+            background-color: #F9F8F6;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 600px;
+            padding: 1.5rem;
+            text-align: center;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        /* 手機版優化 */
+        @media (max-width: 640px) {
+            .prize-item {
+                padding: 12px 8px;
+            }
+            
+            .prize-item input[type="text"] {
+                font-size: 16px; /* 防止iOS縮放 */
+            }
+            
+            .prize-item input[type="number"] {
+                font-size: 16px; /* 防止iOS縮放 */
+                width: 60px;
+            }
+            
+            .delete-prize svg {
+                width: 20px;
+                height: 20px;
+            }
+            
+            #participantInput {
+                font-size: 16px; /* 防止iOS縮放 */
+            }
+            
+            .drawing-content {
+                padding: 1rem;
+            }
+        }
+        
+        /* 觸控優化 */
+        button, .prize-item, .participant-item {
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        
+        /* 表單控件優化 */
+        input, textarea, button {
+            -webkit-appearance: none;
+            border-radius: 0;
+        }
+        
+        /* 滾動優化 */
+        .drawing-content, #participantList {
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* 獎項顯示增強 */
+        .prize-badge {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 999px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 1rem;
+        }
+        
+        /* 得獎者名字樣式 */
+        .winner-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #333;
+            background-color: #fff;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            margin: 0.5rem 0;
+            display: inline-block;
+        }
+        
+        /* 簡單線條圖形 */
+        .simple-icon {
+            display: inline-block;
+            stroke: currentColor;
+            stroke-width: 1.5;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0.8;
+        }
+        
+        /* 名字顯示 */
+        .lottery-name-display {
+            position: relative;
+            height: 60px;
+            background-color: white;
+            border-radius: 12px;
+            padding: 10px;
+            margin: 20px auto;
+            max-width: 80%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .lottery-name-text {
+            font-weight: 600;
+            font-size: 1.25rem;
+            color: #444;
+        }
+        
+        /* 結果顯示區域增強 */
+        .result-prize-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .result-winners-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+        
+        .result-winner-item {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #333;
+            background-color: #fff;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid #E0E6DE;
+            text-align: center;
+        }
+        
+        /* 多位得獎者顯示 */
+        .winners-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 15px auto;
+            max-width: 90%;
+        }
+        
+        .winner-card {
+            background-color: #E0E6DE;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid rgba(224, 230, 222, 0.5);
+            transition: all 0.3s ease;
+        }
+        
+        .winner-card-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+            margin: 0;
+            word-break: break-word;
+        }
+        
+        /* 抽獎動畫區域 */
+        .drawing-animation {
+            margin: 20px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            max-width: 90%;
+            transition: all 0.5s ease;
+            overflow: hidden;
+        }
+        
+        .candidate-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+            text-align: center;
+            padding: 15px;
+            margin: 10px auto;
+            background-color: #f8f8f8;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+        }
+        
+        /* 已選出的得獎者列表 */
+        .selected-winners {
+            margin-top: 20px;
+            padding: 10px;
+            transition: all 0.5s ease;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .selected-winner-item {
+            background-color: #E0E6DE;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin: 8px 0;
+            font-weight: 600;
+            color: #333;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* 得獎者卡片顏色 */
+        .winner-card-colors {
+            background-color: var(--bg-color, #E0E6DE);
+        }
+        
+        /* 強調當前選中的得獎者 */
+        .selected-winner-item.highlight {
+            background-color: #F4E7DF;
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* 抽獎動畫效果 */
+        .candidate-name.highlight {
+            background-color: #F4E7DF;
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        /* 修復圓形圖標內的SVG定位 */
+        .icon-circle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .icon-circle svg {
+            width: 60%;
+            height: 60%;
+        }
+        
+        /* 恭喜得獎者區域強調 */
+        .winner-announcement {
+            position: relative;
+            z-index: 10;
+            animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-origin: center;
+        }
+        
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        /* 得獎者卡片動畫 */
+        .winner-card {
+            animation: cardAppear 0.5s ease forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        
+        @keyframes cardAppear {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .winners-grid .winner-card:nth-child(1) { animation-delay: 0.1s; }
+        .winners-grid .winner-card:nth-child(2) { animation-delay: 0.2s; }
+        .winners-grid .winner-card:nth-child(3) { animation-delay: 0.3s; }
+        .winners-grid .winner-card:nth-child(4) { animation-delay: 0.4s; }
+        .winners-grid .winner-card:nth-child(5) { animation-delay: 0.5s; }
+        .winners-grid .winner-card:nth-child(6) { animation-delay: 0.6s; }
+        .winners-grid .winner-card:nth-child(7) { animation-delay: 0.7s; }
+        .winners-grid .winner-card:nth-child(8) { animation-delay: 0.8s; }
+        
+        /* 抽獎過程區域 */
+        .drawing-process {
+            transition: all 0.5s ease;
+            overflow: hidden;
+            max-height: 1000px; /* 足夠大的高度以容納內容 */
+        }
+        
+        .drawing-process.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* 恭喜得獎者標題 */
+        .congrats-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+            margin: 1rem 0;
+            position: relative;
+            display: inline-block;
+        }
+        
+        .congrats-title:after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: #F4E7DF;
+            border-radius: 3px;
+        }
+        
+        /* 即時得獎者卡片 */
+        .live-winners-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 15px auto;
+            max-width: 90%;
+        }
+        
+        /* 美化抽獎結果 */
+        .result-section {
+            background: linear-gradient(to bottom, #ffffff, #f9f8f6);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        
+        .result-header {
+            background-color: #f0f0f0;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .result-item {
+            /* margin-bottom: 1rem; */
+            padding: 1rem;
+            border-radius: 12px;
+            background-color: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.07);
+           /* transition: all 0.3s ease; */
+        }
+        
+       /* .result-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+        } */
+        
+        .prize-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+        }
+        
+        .prize-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #d7a1a1;
+            transform: translateY(-2px);
+        }
+        
+        .winner-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 0.3rem;
+            padding: 0.35rem;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        
+        .winner-badge {
+            background-color: white;
+            border-radius: 999px;
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        
+        .winner-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+        }
+        
+        .winner-number {
+            background-color: #E0E6DE;
+            color: #333;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+            font-weight: 700;
+        }
+        
+        .winner-name-text {
+            font-size: 1rem;
+            color: #333;
+        }
+        
+        /* 複製按鈕樣式 */
+        .copy-button {
+            background-color: #b8e6e2;
+            border: none;
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .copy-button:hover {
+            background-color: #d0d6ce;
+        }
+        
+        .copy-button:active {
+            transform: translateY(1px);
+        }
+        
+        /* 複製成功提示 */
+        .copy-tooltip {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .copy-tooltip.show {
+            opacity: 1;
+        }
+        
+        /* 獎項數量標籤 */
+        .prize-count {
+            background-color: #f0f0f0;
+            border-radius: 999px;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #555;
+            margin-left: 0.75rem;
+        }
+        
+        /* 獎項確認按鈕 */
+        .confirm-button {
+            background-color: #E0E6DE;
+            color: #333;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            border: none;
+        }
+        
+        .confirm-button:hover {
+            background-color: #d0d6ce;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+        }
+        
+        .confirm-button:active {
+            transform: translateY(1px);
+        }
+        
+        .edit-button {
+            background-color: #EDE2E1;
+            color: #333;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            border: none;
+        }
+        
+        .edit-button:hover {
+            background-color: #e0d5d4;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+        }
+        
+        .edit-button:active {
+            transform: translateY(1px);
+        }
+        
+        /* 獎項確認後的預覽樣式 */
+        .prize-preview-item {
+            background-color: white;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .prize-preview-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .prize-preview-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+        }
+        
+        .prize-preview-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.125rem;
+        }
+        
+        .prize-preview-count {
+            background-color: #f0f0f0;
+            border-radius: 999px;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        /* 提示彈窗樣式 */
+        .alert-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        .alert-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .alert-box {
+            background-color: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+        
+        .alert-overlay.active .alert-box {
+            transform: translateY(0);
+        }
+        
+        .alert-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .alert-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0.75rem;
+        }
+        
+        .alert-message {
+            font-size: 1rem;
+            color: #555;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+        
+        .alert-button {
+            background-color: #E0E6DE;
+            color: #333;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            transition: all 0.2s ease;
+        }
+        
+        .alert-button:hover {
+            background-color: #d0d6ce;
+        }
+        
+        .alert-button:active {
+            transform: translateY(1px);
+        }
+        
+        /* 不同類型的提示圖標 */
+        .alert-icon.info {
+            background-color: #DCE4EA;
+        }
+        
+        .alert-icon.warning {
+            background-color: #F4E7DF;
+        }
+        
+        .alert-icon.error {
+            background-color: #EDE2E1;
+        }
+    </style>
+</head>
+<body class="p-3 md:p-8">
+    <div class="max-w-6xl mx-auto relative z-10">
+        <header class="text-center mb-6 md:mb-12">
+            <h1 class="text-3xl md:text-5xl font-bold text-gray-700 mb-2">抽獎系統</h1>
+            <div class="w-20 h-1 bg-muted-sage mx-auto mt-3 rounded-full"></div>
+            
+            <div class="flex justify-center mt-4">
+                <div class="w-8 h-8 bg-muted-pink rounded-full flex items-center justify-center mx-1">
+                    <div class="icon-circle">
+                        <svg class="simple-icon" viewBox="0 0 24 24">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        </svg>
+                    </div>
+                </div>
+                <div class="w-8 h-8 bg-muted-sage rounded-full flex items-center justify-center mx-1">
+                    <div class="icon-circle">
+                        <svg class="simple-icon" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"></circle>
+                        </svg>
+                    </div>
+                </div>
+                <div class="w-8 h-8 bg-muted-blue rounded-full flex items-center justify-center mx-1">
+                    <div class="icon-circle">
+                        <svg class="simple-icon" viewBox="0 0 24 24">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <div class="grid grid-cols-1 gap-6 mb-8">
+            <div class="bg-white rounded-xl p-4 md:p-6 muted-shadow">
+                <h2 class="text-lg md:text-xl font-semibold text-gray-700 mb-3 flex items-center">
+                    <div class="w-5 h-5 mr-2 bg-muted-peach rounded-full flex items-center justify-center">
+                        <div class="icon-circle">
+                            <svg class="simple-icon" viewBox="0 0 24 24">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                            </svg>
+                        </div>
+                    </div>
+                    獎項設定
+                </h2>
+                
+                <div id="prizeEditArea">
+                    <div class="space-y-3" id="prizeContainer">
+                        </div>
+                    <button id="addPrize" class="mt-4 flex items-center text-sm text-muted-blue hover:text-blue-600 font-medium p-2">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        新增獎項
+                    </button>
+                    
+                    <div class="mt-6 text-center">
+                        <button id="confirmPrizes" class="confirm-button">
+                            確定
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="prizePreviewArea" class="hidden">
+                    <div id="prizePreviewList" class="space-y-3">
+                        </div>
+                    
+                    <div class="mt-6 text-center">
+                        <button id="editPrizes" class="edit-button">
+                            修改
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl p-4 md:p-6 muted-shadow">
+                <h2 class="text-lg md:text-xl font-semibold text-gray-700 mb-3 flex items-center">
+                    <div class="w-5 h-5 mr-2 bg-muted-lavender rounded-full flex items-center justify-center">
+                        <div class="icon-circle">
+                            <svg class="simple-icon" viewBox="0 0 24 24">
+                                <circle cx="12" cy="8" r="5"></circle>
+                                <path d="M20 21v-2a7 7 0 0 0-14 0v2"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    參加者設定
+                </h2>
+                <div class="mb-3">
+                    <textarea id="participantInput" rows="4" class="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-muted-sage" placeholder="輸入參加者名單，每行一個名字"></textarea>
+                </div>
+                <div class="flex justify-between items-center text-sm text-gray-500">
+                    <span id="participantCount">0 位參加者</span>
+                    <button id="clearParticipants" class="text-muted-pink hover:text-red-600 p-2">清空</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mb-10">
+            <button id="drawButton" class="draw-button bg-muted-sage text-gray-700 text-lg md:text-xl font-bold py-3 md:py-4 px-8 md:px-10 rounded-full hover:bg-muted-mint focus:outline-none focus:ring-2 focus:ring-muted-sage focus:ring-offset-2 w-full sm:w-auto relative overflow-hidden">
+                <span class="relative z-10">開始抽獎</span>
+            </button>
+        </div>
+        
+        <div id="resultSection" class="result-section p-4 md:p-6 mb-8 hidden">
+            <div class="result-header">
+                <div class="flex items-center">
+                    <div class="w-6 h-6 mr-2 bg-muted-blue rounded-full flex items-center justify-center">
+                        <div class="icon-circle">
+                            <svg class="simple-icon" viewBox="0 0 24 24">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+                    <h2 class="text-lg md:text-xl font-semibold text-gray-700">抽獎結果</h2>
+                </div>
+                <button id="copyAllResults" class="copy-button">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    複製全部結果
+                </button>
+            </div>
+            <div id="resultList" class="p-1 space-y-2">
+                </div>
+        </div>
+    </div>
+    
+    <div id="drawingOverlay" class="drawing-overlay">
+        <div class="drawing-content">
+            <h2 class="text-xl md:text-2xl font-bold text-gray-700 mb-4 md:mb-6">抽獎進行中</h2>
+            
+            <div class="mb-1 md:mb-1">
+                <div class="prize-badge bg-muted-peach text-gray-700 text-lg md:text-xl font-bold inline-flex items-center">
+                    <span id="currentPrizeName" class="mx-2"></span>
+                    <div class="bg-white rounded-full px-3 py-1 ml-2 text-base">
+                        <span id="currentPrizeCount"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="drawingProcess" class="drawing-process">
+                <div id="drawingAnimation" class="drawing-animation">
+                    <div id="candidateName" class="candidate-name">
+                        </div>
+                    
+                    <div id="liveWinnersSection" class="mt-6">
+                        <div id="liveWinnersGrid" class="live-winners-grid">
+                            </div>
+                    </div>
+                </div>
+            </div>
+            
+            <button id="continueButton" class="bg-muted-sage text-gray-700 py-2 px-6 rounded-lg hover:bg-muted-mint transition-colors font-medium mt-6 shadow-md hidden">
+                下一獎
+            </button>
+        </div>
+    </div>
+    
+    <div id="copyTooltip" class="copy-tooltip">已複製到剪貼簿</div>
+    
+    <div id="alertOverlay" class="alert-overlay">
+        <div class="alert-box">
+            <div id="alertIcon" class="alert-icon">
+                <div class="icon-circle">
+                    <svg class="simple-icon" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                </div>
+            </div>
+            <h3 id="alertTitle" class="alert-title">提示</h3>
+            <p id="alertMessage" class="alert-message">這是一個提示訊息</p>
+            <button id="alertButton" class="alert-button">確定</button>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化變數
+            const prizeContainer = document.getElementById('prizeContainer');
+            const addPrizeButton = document.getElementById('addPrize');
+            const participantInput = document.getElementById('participantInput');
+            const participantCount = document.getElementById('participantCount');
+            const clearParticipantsButton = document.getElementById('clearParticipants');
+            const drawButton = document.getElementById('drawButton');
+            const resultSection = document.getElementById('resultSection');
+            const resultList = document.getElementById('resultList');
+            const drawingOverlay = document.getElementById('drawingOverlay');
+            const currentPrizeName = document.getElementById('currentPrizeName');
+            const currentPrizeCount = document.getElementById('currentPrizeCount');
+            const candidateName = document.getElementById('candidateName');
+            const continueButton = document.getElementById('continueButton');
+            const drawingProcess = document.getElementById('drawingProcess');
+            const drawingAnimation = document.getElementById('drawingAnimation');
+            const liveWinnersGrid = document.getElementById('liveWinnersGrid');
+            const copyAllResultsButton = document.getElementById('copyAllResults');
+            const copyTooltip = document.getElementById('copyTooltip');
+            
+            // 獎項確認相關元素
+            const prizeEditArea = document.getElementById('prizeEditArea');
+            const prizePreviewArea = document.getElementById('prizePreviewArea');
+            const prizePreviewList = document.getElementById('prizePreviewList');
+            const confirmPrizesButton = document.getElementById('confirmPrizes');
+            const editPrizesButton = document.getElementById('editPrizes');
+            
+            // 提示彈窗相關元素
+            const alertOverlay = document.getElementById('alertOverlay');
+            const alertIcon = document.getElementById('alertIcon');
+            const alertTitle = document.getElementById('alertTitle');
+            const alertMessage = document.getElementById('alertMessage');
+            const alertButton = document.getElementById('alertButton');
+            
+            // 獎項確認狀態
+            let prizesConfirmed = false;
+            
+            // 莫蘭迪色系 (更淡的顏色)
+            const mutedColors = [
+                { bg: 'bg-muted-beige', text: 'text-gray-700', hex: '#E9E5E0' },
+                { bg: 'bg-muted-pink', text: 'text-gray-700', hex: '#EDE2E1' },
+                { bg: 'bg-muted-sage', text: 'text-gray-700', hex: '#E0E6DE' },
+                { bg: 'bg-muted-blue', text: 'text-gray-700', hex: '#DCE4EA' },
+                { bg: 'bg-muted-lavender', text: 'text-gray-700', hex: '#E5E2EE' },
+                { bg: 'bg-muted-mint', text: 'text-gray-700', hex: '#E0EBE3' },
+                { bg: 'bg-muted-peach', text: 'text-gray-700', hex: '#F4E7DF' },
+                { bg: 'bg-muted-clay', text: 'text-gray-700', hex: '#E5DBD2' },
+                { bg: 'bg-muted-dusty', text: 'text-gray-700', hex: '#DCD7D4' }
+            ];
+            
+            // 簡單線條圖標
+            const simpleIcons = [
+                '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>',
+                '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>',
+                '<circle cx="12" cy="12" r="10"></circle>',
+                '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>',
+                '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>'
+            ];
+            
+            // 顯示提示彈窗
+            function showAlert(type, title, message) {
+                alertIcon.className = `alert-icon ${type}`;
+                
+                // 根據類型設置不同的圖標
+                let iconSvg = '';
+                switch(type) {
+                    case 'info':
+                        iconSvg = '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>';
+                        break;
+                    case 'warning':
+                        iconSvg = '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>';
+                        break;
+                    case 'error':
+                        iconSvg = '<circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>';
+                        break;
+                }
+                
+                alertIcon.querySelector('svg').innerHTML = iconSvg;
+                alertTitle.textContent = title;
+                alertMessage.textContent = message;
+                
+                alertOverlay.classList.add('active');
+                
+                // 點擊確定按鈕關閉彈窗
+                alertButton.onclick = function() {
+                    alertOverlay.classList.remove('active');
+                };
+            }
+            
+            // 添加獎項項目
+            function addPrizeItem(name = '', count = 1, index = prizeContainer.children.length, autoFocus = true) {
+                const prizeItem = document.createElement('div');
+                prizeItem.className = 'prize-item flex items-center space-x-2 bg-gray-50 p-3 rounded-lg';
+                prizeItem.innerHTML = `
+                    <div class="w-8 h-8 rounded-full ${mutedColors[index % mutedColors.length].bg} flex items-center justify-center text-gray-700 font-medium">
+                        ${index + 1}
+                    </div>
+                    <input type="text" placeholder="獎項名稱" class="flex-1 border-0 bg-transparent focus:ring-0 text-gray-700 prize-name-input" value="${name}">
+                    <div class="flex items-center">
+                        <span class="text-gray-500 text-sm mr-2">數量:</span>
+                        <input type="number" min="1" value="${count}" class="w-16 border border-gray-200 rounded-md px-2 py-1 text-center text-gray-700">
+                    </div>
+                    <button class="delete-prize text-gray-400 hover:text-gray-600 p-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                `;
+                
+                // 添加刪除事件
+                const deleteButton = prizeItem.querySelector('.delete-prize');
+                deleteButton.addEventListener('click', function() {
+                    prizeItem.remove();
+                    updatePrizeNumbers();
+                });
+                
+                prizeContainer.appendChild(prizeItem);
+
+                           
+
+// 獲取新添加的獎項名稱輸入框並讓它獲得焦點
+                 if (autoFocus) {
+                    const newPrizeInput = prizeItem.querySelector('.prize-name-input'); // <--- 這裡改用 class 選擇器
+                    if (newPrizeInput) {
+                        // 使用 setTimeout 輕微延遲聚焦，確保元素在 DOM 中完全可用
+                        setTimeout(() => {
+                            newPrizeInput.focus();
+                        }, 0); 
+                    }
+                }
+            }
+
+            // 更新獎項編號
+            function updatePrizeNumbers() {
+                const prizeItems = prizeContainer.querySelectorAll('.prize-item');
+                prizeItems.forEach((item, index) => {
+                    const numberDiv = item.querySelector('div');
+                    numberDiv.textContent = index + 1;
+                    numberDiv.className = `w-8 h-8 rounded-full ${mutedColors[index % mutedColors.length].bg} flex items-center justify-center text-gray-700 font-medium`;
+                });
+            }
+            
+            // 獲取獎項列表
+            function getPrizes() {
+                const prizes = [];
+                const prizeItems = prizeContainer.querySelectorAll('.prize-item');
+                
+                prizeItems.forEach(item => {
+                    const name = item.querySelector('input[type="text"]').value;
+                    const count = parseInt(item.querySelector('input[type="number"]').value || 1);
+                    
+                    if (name && count > 0) {
+                        prizes.push({ name, count });
+                    }
+                });
+                
+                return prizes;
+            }
+            
+            // 創建獎項預覽項目
+            function createPrizePreviewItem(prize, count, index) {
+                const colorIndex = index % mutedColors.length;
+                const iconIndex = index % simpleIcons.length;
+                
+                const prizePreviewItem = document.createElement('div');
+                prizePreviewItem.className = 'prize-preview-item';
+                prizePreviewItem.innerHTML = `
+                    <div class="prize-preview-info">
+                        <div class="prize-preview-icon ${mutedColors[colorIndex].bg}">
+                            <div class="icon-circle">
+                                <svg class="simple-icon" viewBox="0 0 24 24">
+                                    ${simpleIcons[iconIndex]}
+                                </svg>
+                            </div>
+                        </div>
+                        <span class="prize-preview-name">${prize}</span>
+                    </div>
+                    <span class="prize-preview-count">${count} 名</span>
+                `;
+                
+                return prizePreviewItem;
+            }
+            
+            // 更新獎項預覽
+            function updatePrizePreview() {
+                prizePreviewList.innerHTML = '';
+                
+                const prizes = getPrizes();
+                
+                if (prizes.length === 0) {
+                    const emptyMessage = document.createElement('div');
+                    emptyMessage.className = 'text-center text-gray-500 py-4';
+                    emptyMessage.textContent = '尚未設定獎項';
+                    prizePreviewList.appendChild(emptyMessage);
+                    return;
+                }
+                
+                prizes.forEach((prize, index) => {
+                    const prizePreviewItem = createPrizePreviewItem(prize.name, prize.count, index);
+                    prizePreviewList.appendChild(prizePreviewItem);
+                });
+            }
+            
+            // 確認獎項
+            function confirmPrizes() {
+                const prizes = getPrizes();
+                
+                if (prizes.length === 0) {
+                    showAlert('warning', '獎項未設定', '請至少添加一個獎項');
+                    return;
+                }
+                
+                // 檢查獎項名稱是否為空
+                const emptyNamePrize = prizes.find(prize => !prize.name.trim());
+                if (emptyNamePrize) {
+                    showAlert('warning', '獎項名稱未填寫', '獎項名稱不能為空');
+                    return;
+                }
+                
+                // 更新預覽
+                updatePrizePreview();
+                
+                // 切換顯示
+                prizeEditArea.classList.add('hidden');
+                prizePreviewArea.classList.remove('hidden');
+                
+                // 更新狀態
+                prizesConfirmed = true;
+                
+                // 檢查是否可以啟用抽獎按鈕
+                // checkDrawButtonState(); // 此行不再需要禁用按鈕
+            }
+            
+            // 編輯獎項
+            function editPrizes() {
+                // 切換顯示
+                prizeEditArea.classList.remove('hidden');
+                prizePreviewArea.classList.add('hidden');
+                
+                // 更新狀態
+                prizesConfirmed = false;
+                
+                // 禁用抽獎按鈕 (此行被移除，因為按鈕將一直啟用)
+                // drawButton.disabled = true;
+            }
+            
+            // 檢查抽獎按鈕狀態 (此函式主要用於判斷是否滿足抽獎條件，而不是直接禁用按鈕)
+            function checkDrawButtonState() {
+                const participants = getParticipants();
+                const canDraw = prizesConfirmed && participants.length > 0;
+                // drawButton.disabled = !canDraw; // 移除這行以保持按鈕啟用
+                
+                return canDraw;
+            }
+            
+            // 更新參加者計數
+            function updateParticipantCount() {
+                const participants = getParticipants();
+                participantCount.textContent = `${participants.length} 位參加者`;
+                
+                // 檢查是否可以啟用抽獎按鈕 (此行將不再禁用按鈕)
+                checkDrawButtonState();
+            }
+            
+            // 獲取參加者列表
+            function getParticipants() {
+                const text = participantInput.value.trim();
+                if (!text) return [];
+                
+                return text.split('\n')
+                    .map(name => name.trim())
+                    .filter(name => name.length > 0);
+            }
+            
+            // 創建抽獎結果項目 (美化版)
+            function createResultItem(prize, count, winners, index) {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item';
+                resultItem.dataset.prize = prize;
+                resultItem.dataset.winners = JSON.stringify(winners);
+                
+                // 獎項標題
+                const prizeHeader = document.createElement('div');
+                prizeHeader.className = 'flex items-center justify-between';
+                
+                const colorIndex = index % mutedColors.length;
+                const iconIndex = index % simpleIcons.length;
+                
+                const prizeInfo = document.createElement('div');
+                prizeInfo.className = 'flex items-center';
+                prizeInfo.innerHTML = `
+                    <div class="prize-icon ${mutedColors[colorIndex].bg}">
+                        <div class="icon-circle">
+                            <svg class="simple-icon" viewBox="0 0 24 24">
+                                ${simpleIcons[iconIndex]}
+                            </svg>
+                        </div>
+                    </div>
+                    <h3 class="prize-name">${prize}</h3>
+                    <span class="prize-count">${count} 名</span>
+                `;
+                
+                prizeHeader.appendChild(prizeInfo);
+                resultItem.appendChild(prizeHeader);
+                
+                // 得獎者列表
+                const winnerList = document.createElement('div');
+                winnerList.className = 'winner-list';
+                
+                winners.forEach((winner, idx) => {
+                    const winnerBadge = document.createElement('div');
+                    winnerBadge.className = 'winner-badge';
+                    winnerBadge.innerHTML = `
+                        <span class="winner-number">${idx + 1}</span>
+                        <span class="winner-name-text">${winner}</span>
+                    `;
+                    winnerList.appendChild(winnerBadge);
+                });
+                
+                resultItem.appendChild(winnerList);
+                
+                return resultItem;
+            }
+            
+            // 格式化所有結果文本用於複製
+            function formatAllResultsText() {
+                const resultItems = resultList.querySelectorAll('.result-item');
+                let text = '抽獎結果\n\n';
+                
+                resultItems.forEach((item) => {
+                    const prize = item.dataset.prize;
+                    const winners = JSON.parse(item.dataset.winners);
+                    const count = winners.length;
+                    
+                    text += `${prize} (${count} 名):\n`;
+                    winners.forEach((winner, idx) => {
+                        text += `${idx + 1}. ${winner}\n`;
+                    });
+                    text += '\n';
+                });
+                
+                return text;
+            }
+            
+            // 複製到剪貼簿
+            function copyToClipboard(text) {
+                // 創建臨時文本區域
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                
+                try {
+                    // 執行複製命令
+                    document.execCommand('copy');
+                    showCopyTooltip();
+                } catch (err) {
+                    console.error('無法複製文本: ', err);
+                    showAlert('error', '複製失敗', '請手動複製文本。');
+                }
+                
+                document.body.removeChild(textarea);
+            }
+            
+            // 顯示複製成功提示
+            function showCopyTooltip() {
+                copyTooltip.classList.add('show');
+                setTimeout(() => {
+                    copyTooltip.classList.remove('show');
+                }, 2000);
+            }
+            
+            // 創建即時得獎者卡片
+            function createLiveWinnerCard(winner, colorIndex) {
+                const winnerCard = document.createElement('div');
+                winnerCard.className = 'winner-card';
+                winnerCard.style.backgroundColor = mutedColors[colorIndex].hex;
+                winnerCard.innerHTML = `
+                    <p class="winner-card-name">${winner}</p>
+                `;
+                liveWinnersGrid.appendChild(winnerCard);
+                return winnerCard;
+            }
+            
+            // 隨機顯示候選人名字動畫
+            function animateRandomNames(participants) {
+                if (participants.length === 0) {
+                    return null;
+                }
+                
+                const intervalTime = 80; // 名字切換間隔時間（毫秒）
+                let animationInterval = null;
+                
+                // 開始動畫
+                function startAnimation() {
+                    if (animationInterval) {
+                        clearInterval(animationInterval);
+                    }
+                    
+                    animationInterval = setInterval(() => {
+                        // 隨機選擇一個參加者名字
+                        const randomIndex = Math.floor(Math.random() * participants.length);
+                        candidateName.textContent = participants[randomIndex];
+                        
+                        // 添加一個小動畫效果
+                        candidateName.classList.add('highlight');
+                        setTimeout(() => {
+                            candidateName.classList.remove('highlight');
+                        }, 50);
+                    }, intervalTime);
+                    
+                    return animationInterval;
+                }
+                
+                // 停止動畫
+                function stopAnimation() {
+                    if (animationInterval) {
+                        clearInterval(animationInterval);
+                        animationInterval = null;
+                    }
+                }
+                
+                // 開始初始動畫
+                startAnimation();
+                
+                // 返回控制函數
+                return {
+                    start: startAnimation,
+                    stop: stopAnimation
+                };
+            }
+            
+            // 逐個抽取得獎者
+            function drawWinnersSequentially(prize, count, participants, isLastPrize, callback) {
+                // 清空即時得獎者網格
+                liveWinnersGrid.innerHTML = '';
+                
+                // 確保抽獎過程區域可見
+                drawingProcess.classList.remove('collapsed');
+                
+                // 設置當前獎項信息
+                currentPrizeName.textContent = prize;
+                currentPrizeCount.textContent = `抽出 ${count} 名`;
+                
+                // 顯示抽獎覆蓋層
+                drawingOverlay.classList.add('active');
+                
+                // 隱藏繼續按鈕，直到抽獎完成
+                continueButton.classList.add('hidden');
+                
+                // 準備得獎者列表和參加者副本
+                const winners = [];
+                const remainingParticipants = [...participants];
+                let currentIndex = 0;
+                
+                // 開始抽獎動畫
+                const animation = animateRandomNames(remainingParticipants);
+                
+                // 逐個抽取得獎者
+                function drawNext() {
+                    if (currentIndex < count && remainingParticipants.length > 0) {
+                        // 停止當前動畫
+                        animation.stop();
+                        
+                        // 抽取一位得獎者
+                        const randomIndex = Math.floor(Math.random() * remainingParticipants.length);
+                        const winner = remainingParticipants[randomIndex];
+                        winners.push(winner);
+                        
+                        // 從剩餘參加者中移除已選出的得獎者
+                        remainingParticipants.splice(randomIndex, 1);
+                        
+                        // 顯示得獎者
+                        candidateName.textContent = winner;
+                        candidateName.classList.add('highlight');
+                        
+                        // 創建即時得獎者卡片
+                        const colorIndex = currentIndex % mutedColors.length;
+                        const winnerCard = createLiveWinnerCard(winner, colorIndex);
+                        
+                        currentIndex++;
+                        
+                        // 如果還有得獎者要抽，延遲後繼續
+                        if (currentIndex < count && remainingParticipants.length > 0) {
+                            setTimeout(() => {
+                                // 移除高亮
+                                candidateName.classList.remove('highlight');
+                                
+                                // 重新開始動畫
+                                animation.start();
+                                
+                                // 3秒後抽下一位
+                                setTimeout(drawNext, 3000);
+                            }, 1000);
+                        } else {
+                            // 全部抽完，顯示結果
+                            setTimeout(() => {
+                                // 移除高亮
+                                candidateName.classList.remove('highlight');
+                                
+                                // 將候選人名字區域改為「恭喜得獎者」
+                                candidateName.textContent = "恭喜得獎者";
+                                candidateName.classList.add('congrats-title');
+                                
+                                // 顯示繼續按鈕，並設置文字
+                                continueButton.textContent = isLastPrize ? "結束" : "下一獎";
+                                continueButton.classList.remove('hidden');
+                                
+                                // 繼續按鈕點擊事件
+                                continueButton.onclick = function() {
+                                    drawingOverlay.classList.remove('active');
+                                    candidateName.classList.remove('congrats-title');
+                                    callback(winners);
+                                };
+                            }, 1000);
+                        }
+                    } else {
+                        // 沒有足夠的參加者或已抽完
+                        if (animation) animation.stop();
+                        
+                        setTimeout(() => {
+                            if (winners.length > 0) {
+                                // 將候選人名字區域改為「恭喜得獎者」
+                                candidateName.textContent = "恭喜得獎者";
+                                candidateName.classList.add('congrats-title');
+                                
+                                // 顯示繼續按鈕，並設置文字
+                                continueButton.textContent = isLastPrize ? "結束" : "下一獎";
+                                continueButton.classList.remove('hidden');
+                                
+                                // 繼續按鈕點擊事件
+                                continueButton.onclick = function() {
+                                    drawingOverlay.classList.remove('active');
+                                    candidateName.classList.remove('congrats-title');
+ 
+                               // 如果是最後一個獎項，並且按鈕文本是「結束」
+                               // if (isLastPrize) { // 這裡已經是 drawNextPrize 的作用域，可以直接使用 isLastPrize
+                                // 滾動到結果區塊
+                                // resultSection.scrollIntoView({
+                                // behavior: 'smooth' // 平滑滾動
+                                //   });
+                             //  }
+
+
+                                    callback(winners);
+                                };
+                            } else {
+                                drawingOverlay.classList.remove('active');
+                                callback([]);
+                            }
+                        }, 1000);
+                    }
+                }
+                
+                // 開始抽獎
+                setTimeout(drawNext, 2000);
+            }
+            
+            // 執行抽獎
+            function startDrawing() {
+                // 檢查是否可以開始抽獎 (現在這裡只負責提示，不負責禁用按鈕)
+                if (!prizesConfirmed) {
+                    showAlert('warning', '獎項未確認', '請先點擊「確定」按鈕確認獎項設定後再開始抽獎');
+                    return;
+                }
+                
+                const participants = getParticipants();
+                if (participants.length === 0) {
+                    showAlert('warning', '參加者未設定', '請輸入參加者名單後再開始抽獎');
+                    return;
+                }
+                
+                // 獲取所有獎項
+                const prizes = [];
+                const prizeItems = prizePreviewList.querySelectorAll('.prize-preview-item');
+                
+                prizeItems.forEach((item, index) => {
+                    const name = item.querySelector('.prize-preview-name').textContent;
+                    const countText = item.querySelector('.prize-preview-count').textContent;
+                    const count = parseInt(countText.match(/\d+/)[0]);
+                    
+                    if (name && count > 0) {
+                        prizes.push({ name, count });
+                    }
+                });
+                
+                // 檢查是否有足夠的參加者
+                const totalWinners = prizes.reduce((sum, prize) => sum + prize.count, 0);
+                if (participants.length < totalWinners) {
+                    showAlert('warning', '參加者不足', `參加者數量不足！需要至少 ${totalWinners} 位參加者，目前只有 ${participants.length} 位。`);
+                    return;
+                }
+                
+                // 顯示結果區域並清空之前的結果
+                resultSection.classList.remove('hidden');
+                resultList.innerHTML = '';
+                
+                // 創建參加者副本，以便在抽獎過程中移除已選出的得獎者
+                const remainingParticipants = [...participants];
+                
+                // 逐個獎項抽獎
+                let currentPrizeIndex = 0;
+                
+                function drawNextPrize() {
+                    if (currentPrizeIndex < prizes.length) {
+                        const prize = prizes[currentPrizeIndex];
+                        const isLastPrize = currentPrizeIndex === prizes.length - 1;
+                        
+                        drawWinnersSequentially(prize.name, prize.count, remainingParticipants, isLastPrize, (winners) => {
+                            if (winners.length > 0) {
+                                // 添加結果
+                                const resultItem = createResultItem(prize.name, prize.count, winners, currentPrizeIndex);
+                                resultList.appendChild(resultItem);
+                                
+                                // 從剩餘參加者中移除已選出的得獎者
+                                winners.forEach(winner => {
+                                    const index = remainingParticipants.indexOf(winner);
+                                    if (index !== -1) {
+                                        remainingParticipants.splice(index, 1);
+                                    }
+                                });
+                            }
+                            
+                            currentPrizeIndex++;
+                            drawNextPrize();
+                        });
+                    } else {
+                        // 當所有獎項都抽完時，執行這裡的代碼
+                        resultSection.scrollIntoView({
+                            behavior: 'smooth' // 平滑滾動
+                        });
+                    }
+                }
+                
+
+                drawNextPrize();
+            }
+            
+            // 複製所有結果
+            copyAllResultsButton.addEventListener('click', function() {
+                const allResultsText = formatAllResultsText();
+                copyToClipboard(allResultsText);
+            });
+            
+            // 事件監聽器
+            
+            
+            participantInput.addEventListener('input', updateParticipantCount);
+            
+            clearParticipantsButton.addEventListener('click', () => {
+                participantInput.value = '';
+                updateParticipantCount();
+            });
+            
+            drawButton.addEventListener('click', function() {
+                startDrawing();
+            });
+            
+            // 確認獎項按鈕
+            confirmPrizesButton.addEventListener('click', confirmPrizes);
+            
+            // 編輯獎項按鈕
+            editPrizesButton.addEventListener('click', editPrizes);
+            
+            // 添加刪除獎項事件
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.delete-prize')) {
+                    const prizeItem = e.target.closest('.prize-item');
+                    prizeItem.remove();
+                    updatePrizeNumbers();
+                }
+            });
+            
+            // 修復iOS上的輸入問題
+            const fixIOSInput = () => {
+                const inputs = document.querySelectorAll('input, textarea');
+                inputs.forEach(input => {
+                    input.addEventListener('focus', () => {
+                        // 添加一些頂部padding以防止輸入被鍵盤遮擋
+                        setTimeout(() => {
+                            window.scrollTo(0, input.getBoundingClientRect().top - 100);
+                        }, 300);
+                    });
+                });
+            };
+            
+            // 檢測是否為iOS設備
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            if (isIOS) {
+                fixIOSInput();
+            }
+            
+            // 防止雙擊縮放
+            document.addEventListener('touchstart', function(event) {
+                if (event.touches.length > 1) {
+                    event.preventDefault();
+                }
+            }, { passive: false });
+            
+            // 防止雙指縮放
+            document.addEventListener('touchmove', function(event) {
+                if (event.touches.length > 1) {
+                    event.preventDefault();
+                }
+            }, { passive: false });
+            
+            // 初始化添加一個獎項
+            addPrizeItem('', 1, 0, false);
+           // "新增獎項" 按鈕的事件監聽器
+            addPrizeButton.addEventListener('click', () => {
+                // 這裡傳遞 true，確保點擊後自動聚焦
+                addPrizeItem('', 1, prizeContainer.children.length, true); 
+            }); 
+        
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9540c22de2cf4a84',t:'MTc1MDY0Nzg3Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
