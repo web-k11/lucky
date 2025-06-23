@@ -480,6 +480,7 @@
             align-items: center;
             justify-content: center;
             margin-right: 1rem;
+           flex-shrink: 0;
         }
         
         .prize-name {
@@ -527,6 +528,7 @@
             justify-content: center;
             font-size: 0.875rem;
             font-weight: 700;
+          flex-shrink: 0;
         }
         
         .winner-name-text {
@@ -584,12 +586,31 @@
         .prize-count {
             background-color: #f0f0f0;
             border-radius: 999px;
-            padding: 0.25rem 0.75rem;
-            font-size: 0.875rem;
+            padding: 0.125rem 0.5rem;
+            font-size: 0.75rem;
             font-weight: 600;
             color: #555;
-            margin-left: 0.75rem;
-        }
+            white-space: nowrap; /* 確保 "1名" 不會換行，保持單行 */
+    flex-shrink: 0;      /* 非常重要！防止在 Flex 容器中被擠壓 */
+    min-width: 35px;     /* 設定一個最小寬度，確保內容可見 */
+    
+    display: flex;       /* 將自身設為 Flex 容器 */
+    justify-content: center; /* 確保內部內容（"1名"）水平置中 */
+    align-items: center; /* 確保內部內容垂直置中 */
+
+    /* 處理左側間距：可以保留或根據需要調整 */
+    margin-left: 0.75rem; /* 您原本可能有的左側間距 */
+}
+
+/* 針對小螢幕進一步優化 (與 .prize-preview-count 保持一致) */
+@media (max-width: 640px) { /* 這是 Tailwind CSS 的 'sm' 斷點 */
+    .prize-count {
+        min-width: 30px; /* 在更小的手機螢幕上，可以允許它再窄一點 */
+        padding: 0.125rem 0.4rem; /* 左右內邊距再縮小一點 */
+    }
+}
+            
+     
         
         /* 獎項確認按鈕 */
         .confirm-button {
@@ -659,6 +680,7 @@
             align-items: center;
             justify-content: center;
             margin-right: 1rem;
+            flex-shrink: 0;
         }
         
         .prize-preview-name {
@@ -737,6 +759,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+           flex-shrink: 0;
         }
         
         .alert-title {
@@ -890,7 +913,7 @@
         <div id="resultSection" class="result-section p-4 md:p-6 mb-8 hidden">
             <div class="result-header">
                 <div class="flex items-center">
-                    <div class="w-6 h-6 mr-2 bg-muted-blue rounded-full flex items-center justify-center">
+                    <div class="w-6 h-6 mr-2 bg-muted-blue rounded-full flex items-center justify-center flex-none">
                         <div class="icon-circle">
                             <svg class="simple-icon" viewBox="0 0 24 24">
                                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
