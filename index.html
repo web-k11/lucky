@@ -1042,7 +1042,7 @@
             // 添加獎項項目
             function addPrizeItem(name = '', count = 1, index = prizeContainer.children.length, autoFocus = true) {
                 const prizeItem = document.createElement('div');
-                prizeItem.className = 'prize-item flex items-center space-x-0.5 sm:space-x-2 bg-gray-50 p-1.5 sm:p-3 rounded-lg';
+                prizeItem.className = 'prize-item flex flex-wrap items-center gap-y-1 space-x-0.5 sm:space-x-2 bg-gray-50 p-1.5 sm:p-3 rounded-lg';
                 prizeItem.innerHTML = `
                     <div class="w-7 h-7 rounded-full ${mutedColors[index % mutedColors.length].bg} flex items-center justify-center text-gray-700 font-medium">
                         ${index + 1}
